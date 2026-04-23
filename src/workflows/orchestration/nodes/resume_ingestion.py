@@ -1,7 +1,8 @@
 from __future__ import annotations
 
+from langchain_core.language_models.chat_models import BaseChatModel
+
 from src.ingestion.documents.store import DocumentStore
-from src.llm.base import StructuredChatProvider
 from src.workflows.orchestration.state import OrchestrationState
 from src.workflows.resume_ingestion.graph import to_ingestion_result
 from src.workflows.resume_ingestion.runner import run_resume_ingestion_workflow
@@ -10,7 +11,7 @@ from src.workflows.resume_ingestion.runner import run_resume_ingestion_workflow
 def make_resume_ingestion_node(
     *,
     document_store: DocumentStore | None = None,
-    llm_provider: StructuredChatProvider | None = None,
+    llm_provider: BaseChatModel | None = None,
 ):
     store = document_store or DocumentStore()
 

@@ -4,11 +4,11 @@ from pathlib import Path
 from typing import Annotated
 
 import typer
+from langchain_core.language_models.chat_models import BaseChatModel
 
 from src.configs.exceptions import ConfigError
 from src.ingestion.documents.store import DocumentStore
-from src.llm.base import LLMProvider, StructuredChatProvider
-from src.llm.factory import build_chat_provider, build_structured_chat_provider
+from src.llm.factory import build_chat_model
 from src.workflows.orchestration.runner import run_orchestration_turn
 from src.workflows.orchestration.state import OrchestrationState
 
@@ -33,17 +33,13 @@ def chat(
         str,
         typer.Option(
             "--llm",
-            help="Chat backend to use: openai, ollama, or heuristic.",
+            help="Chat backend to use: openai or ollama.",
         ),
     ] = "openai",
     model: Annotated[
         str,
         typer.Option("--model", help="Chat model for the selected --llm backend."),
     ] = "gpt-5.4-mini",
-    embedding_model: Annotated[
-        str,
-        typer.Option("--embedding-model", help="Embedding model for the selected backend."),
-    ] = "text-embedding-3-small",
     ollama_host: Annotated[
         str,
         typer.Option("--ollama-host", help="Ollama host when --llm ollama."),
@@ -61,8 +57,8 @@ def chat(
         return
 
     document_store = DocumentStore(documents_dir)
-    chat_provider: LLMProvider | None = None
-    ingestion_provider: StructuredChatProvider | None = None
+    chat_model_instance: BaseChatModel | None = None
+    ingestion_provider: BaseChatModel | None = None
     providers_built = False
     state: OrchestrationState = {}
     typer.echo("Jobctl chat. Type /exit or /quit to leave.")
@@ -78,10 +74,9 @@ def chat(
             continue
         if not providers_built:
             try:
-                chat_provider, ingestion_provider = _build_chat_providers(
+                chat_model_instance, ingestion_provider = _build_chat_providers(
                     llm=llm,
                     model=model,
-                    embedding_model=embedding_model,
                     ollama_host=ollama_host,
                     ingestion_llm=ingestion_llm,
                 )
@@ -92,7 +87,7 @@ def chat(
             user_input=user_input,
             state=state,
             document_store=document_store,
-            chat_provider=chat_provider,
+            chat_model=chat_model_instance,
             ingestion_provider=ingestion_provider,
         )
         typer.echo(state.get("response", ""))
@@ -112,17 +107,13 @@ def ask(
         str,
         typer.Option(
             "--llm",
-            help="Chat backend to use: openai, ollama, or heuristic.",
+            help="Chat backend to use: openai or ollama.",
         ),
     ] = "openai",
     model: Annotated[
         str,
         typer.Option("--model", help="Chat model for the selected --llm backend."),
     ] = "gpt-5.4-mini",
-    embedding_model: Annotated[
-        str,
-        typer.Option("--embedding-model", help="Embedding model for the selected backend."),
-    ] = "text-embedding-3-small",
     ollama_host: Annotated[
         str,
         typer.Option("--ollama-host", help="Ollama host when --llm ollama."),
@@ -137,10 +128,9 @@ def ask(
 ) -> None:
     """Run one orchestration chat turn."""
     try:
-        chat_provider, ingestion_provider = _build_chat_providers(
+        chat_model_instance, ingestion_provider = _build_chat_providers(
             llm=llm,
             model=model,
-            embedding_model=embedding_model,
             ollama_host=ollama_host,
             ingestion_llm=ingestion_llm,
         )
@@ -149,7 +139,7 @@ def ask(
     state = run_orchestration_turn(
         user_input=message,
         document_store=DocumentStore(documents_dir),
-        chat_provider=chat_provider,
+        chat_model=chat_model_instance,
         ingestion_provider=ingestion_provider,
     )
     typer.echo(state.get("response", ""))
@@ -159,23 +149,26 @@ def _build_chat_providers(
     *,
     llm: str,
     model: str,
-    embedding_model: str,
     ollama_host: str,
     ingestion_llm: str,
-) -> tuple[LLMProvider | None, StructuredChatProvider | None]:
-    chat_provider = build_chat_provider(
+) -> tuple[BaseChatModel | None, BaseChatModel | None]:
+    """Build the chat model and structured extraction provider."""
+
+    chat_model = build_chat_model(
         provider=llm,
         chat_model=model,
-        embedding_model=embedding_model,
         ollama_host=ollama_host,
+        temperature=0.2,
     )
+    if chat_model is None:
+        raise ConfigError("The orchestration chat agent requires --llm openai or --llm ollama.")
     ingestion_backend = llm if ingestion_llm == "same" else ingestion_llm
-    if ingestion_backend == llm and isinstance(chat_provider, StructuredChatProvider):
-        return chat_provider, chat_provider
-    ingestion_provider = build_structured_chat_provider(
+    if ingestion_backend == llm:
+        return chat_model, chat_model
+    ingestion_provider = build_chat_model(
         provider=ingestion_backend,
         chat_model=model,
-        embedding_model=embedding_model,
         ollama_host=ollama_host,
+        temperature=0.1,
     )
-    return chat_provider, ingestion_provider
+    return chat_model, ingestion_provider
