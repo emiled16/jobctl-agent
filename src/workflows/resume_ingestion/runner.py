@@ -2,9 +2,10 @@ from __future__ import annotations
 
 from collections.abc import Callable
 
+from langchain_core.language_models.chat_models import BaseChatModel
+
 from src.ingestion.documents.models import DocumentSource
 from src.ingestion.documents.store import DocumentStore
-from src.llm.base import StructuredChatProvider
 from src.workflows.resume_ingestion.graph import build_resume_ingestion_graph
 from src.workflows.resume_ingestion.state import ResumeIngestionState
 
@@ -15,7 +16,7 @@ def run_resume_ingestion_workflow(
     *,
     source: DocumentSource,
     document_store: DocumentStore,
-    llm_provider: StructuredChatProvider | None,
+    llm_provider: BaseChatModel | None,
     on_node_update: NodeUpdateCallback | None = None,
 ) -> ResumeIngestionState:
     graph = build_resume_ingestion_graph(

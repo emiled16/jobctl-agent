@@ -5,12 +5,13 @@ from pathlib import Path
 from typing import Annotated
 
 import typer
+from langchain_core.language_models.chat_models import BaseChatModel
 from openai import OpenAIError
 
 from src.configs.exceptions import ConfigError
 from src.ingestion.documents.sources import build_document_source
 from src.ingestion.documents.store import DocumentStore
-from src.llm.factory import build_structured_chat_provider
+from src.llm.factory import build_chat_model
 from src.utils.json import to_jsonable
 from src.workflows.resume_ingestion.graph import (
     to_ingestion_result,
@@ -46,11 +47,15 @@ def ingest_resume(
     ] = False,
     show_state: Annotated[
         bool,
-        typer.Option("--show-state", help="Print the final raw workflow state as JSON."),
+        typer.Option(
+            "--show-state", help="Print the final raw workflow state as JSON."
+        ),
     ] = False,
     logs: Annotated[
         bool,
-        typer.Option("--logs/--no-logs", help="Print one summary line per node update."),
+        typer.Option(
+            "--logs/--no-logs", help="Print one summary line per node update."
+        ),
     ] = True,
     log_detail: Annotated[
         str,
@@ -77,10 +82,6 @@ def ingest_resume(
         str,
         typer.Option("--model", help="OpenAI chat model for --llm openai."),
     ] = "gpt-5.4",
-    embedding_model: Annotated[
-        str,
-        typer.Option("--embedding-model", help="OpenAI embedding model."),
-    ] = "text-embedding-3-small",
 ) -> None:
     """Run the resume ingestion workflow manually."""
     if bool(file) == bool(uri):
@@ -89,10 +90,10 @@ def ingest_resume(
         raise typer.BadParameter("--log-detail must be either 'summary' or 'details'.")
 
     try:
-        provider = build_structured_chat_provider(
+        provider: BaseChatModel | None = build_chat_model(
             provider=llm,
             chat_model=model,
-            embedding_model=embedding_model,
+            temperature=0.1,
         )
         source = build_document_source(file=file, uri=uri)
         final_state = run_resume_ingestion_workflow(
@@ -100,11 +101,13 @@ def ingest_resume(
             document_store=DocumentStore(documents_dir),
             llm_provider=provider,
             on_node_update=(
-                lambda node_name, update: typer.echo(
-                    summarize_node_update(node_name, update, detail=log_detail)
+                lambda node_name, update: (
+                    typer.echo(
+                        summarize_node_update(node_name, update, detail=log_detail)
+                    )
+                    if logs
+                    else None
                 )
-                if logs
-                else None
             ),
         )
     except ConfigError as exc:

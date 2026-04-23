@@ -1,6 +1,10 @@
 from __future__ import annotations
 
-from src.agents.resume_section_extraction.prompts import (
+from typing import Any, cast
+
+from langchain_core.language_models.chat_models import BaseChatModel
+
+from src.agents.resume_section_extraction.prompts.v1 import (
     build_extract_section_messages,
 )
 from src.agents.resume_section_extraction.schemas import (
@@ -8,17 +12,20 @@ from src.agents.resume_section_extraction.schemas import (
     to_section_facts,
 )
 from src.ingestion.resumes.models import ResumeSection, SectionFacts
-from src.llm.base import StructuredChatProvider
 
 
 def extract_section_facts_with_llm(
     section: ResumeSection,
     *,
     source_ref: str,
-    provider: StructuredChatProvider,
+    model: BaseChatModel,
 ) -> SectionFacts:
     messages = build_extract_section_messages(section, source_ref=source_ref)
-    result = provider.chat_structured(messages, ExtractedSectionFacts, temperature=0.1)
+    runnable = cast(
+        Any,
+        model.bind(temperature=0.1).with_structured_output(ExtractedSectionFacts),
+    )
+    result = cast(ExtractedSectionFacts, runnable.invoke(messages))
     return to_section_facts(
         result,
         source_ref=source_ref,

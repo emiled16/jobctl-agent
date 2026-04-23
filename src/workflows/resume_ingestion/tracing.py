@@ -36,7 +36,9 @@ def summarize_node_update(
 
     if validation_errors := update.get("validation_errors"):
         status = update.get("status", "unknown")
-        return f"[{node_name}] status={status} validation_errors={len(validation_errors)}"
+        return (
+            f"[{node_name}] status={status} validation_errors={len(validation_errors)}"
+        )
 
     if "validation_errors" in update:
         status = update.get("status", "unknown")
@@ -80,8 +82,7 @@ def summarize_section_facts(
     detail: LogDetail,
 ) -> str:
     parts = [
-        summarize_section_fact(section, detail=detail)
-        for section in section_facts
+        summarize_section_fact(section, detail=detail) for section in section_facts
     ]
     return f"[{node_name}] " + "; ".join(parts)
 
