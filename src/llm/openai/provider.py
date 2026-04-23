@@ -46,7 +46,10 @@ class OpenAIProvider:
         if openai_tools:
             kwargs["tools"] = openai_tools
 
-        response = retry(lambda: self._client.chat.completions.create(**kwargs))
+        response = retry(lambda: self._request_with_temperature_fallback(
+            self._client.chat.completions.create,
+            kwargs,
+        ))
         message = response.choices[0].message
         content = getattr(message, "content", "") or ""
         tool_calls = parse_openai_tool_calls(getattr(message, "tool_calls", None))
@@ -72,7 +75,10 @@ class OpenAIProvider:
         if openai_tools:
             kwargs["tools"] = openai_tools
 
-        stream = retry(lambda: self._client.chat.completions.create(**kwargs))
+        stream = retry(lambda: self._request_with_temperature_fallback(
+            self._client.chat.completions.create,
+            kwargs,
+        ))
         for event in stream:
             try:
                 delta = event.choices[0].delta
@@ -98,20 +104,32 @@ class OpenAIProvider:
         *,
         temperature: float = 0.3,
     ) -> StructuredModel:
-        response = retry(
-            lambda: self._client.beta.chat.completions.parse(
-                model=self.chat_model,
-                messages=list(messages),
-                response_format=response_format,
-                temperature=temperature,
-            )
-        )
+        kwargs: dict[str, Any] = {
+            "model": self.chat_model,
+            "messages": list(messages),
+            "response_format": response_format,
+            "temperature": temperature,
+        }
+        response = retry(lambda: self._request_with_temperature_fallback(
+            self._client.beta.chat.completions.parse,
+            kwargs,
+        ))
         parsed = response.choices[0].message.parsed
         if parsed is None:
             raise ValueError(
                 "OpenAI structured response did not include parsed content"
             )
         return parsed
+
+    def _request_with_temperature_fallback(self, method: Any, kwargs: dict[str, Any]):
+        try:
+            return method(**kwargs)
+        except Exception as exc:
+            if not is_unsupported_temperature_error(exc) or "temperature" not in kwargs:
+                raise
+            fallback_kwargs = dict(kwargs)
+            fallback_kwargs.pop("temperature", None)
+            return method(**fallback_kwargs)
 
     def embed(self, texts: list[str]) -> list[list[float]]:
         if not texts:
@@ -122,3 +140,13 @@ class OpenAIProvider:
             )
         )
         return [item.embedding for item in response.data]
+
+
+def is_unsupported_temperature_error(exc: Exception) -> bool:
+    try:
+        from openai import BadRequestError
+    except ModuleNotFoundError:
+        return False
+
+    message = str(exc).lower()
+    return isinstance(exc, BadRequestError) and "temperature" in message
