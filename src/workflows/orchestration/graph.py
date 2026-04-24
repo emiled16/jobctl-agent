@@ -39,4 +39,4 @@ def build_orchestration_graph(
 
 
 def route_after_chat_agent(state: OrchestrationState) -> str:
-    return state.get("next_node", "end")
+    return "resume_ingestion" if state.get("workflow_action") == "resume_ingestion" else "end"

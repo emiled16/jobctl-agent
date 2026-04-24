@@ -21,7 +21,8 @@ def make_resume_ingestion_node(
             return {
                 "response": "Please provide a resume file path or URI before ingestion.",
                 "status": "needs_source",
-                "next_node": "end",
+                "interaction_state": "awaiting_resume_source",
+                "workflow_action": "none",
             }
 
         final_state = run_resume_ingestion_workflow(
@@ -40,7 +41,8 @@ def make_resume_ingestion_node(
             "resume_facts": result.facts,
             "response": response,
             "status": "ready" if final_state.get("status") == "valid" else "failed",
-            "next_node": "end",
+            "interaction_state": None,
+            "workflow_action": "none",
         }
 
     return resume_ingestion

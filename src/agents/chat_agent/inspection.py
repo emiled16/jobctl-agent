@@ -52,8 +52,6 @@ SECTION_ALIASES = {
 
 
 def list_resume_sections(facts: ResumeFacts | None) -> str:
-    """List the ingested sections and item counts."""
-
     if facts is None:
         return NO_RESUME_MESSAGE
 
@@ -67,8 +65,6 @@ def list_resume_sections(facts: ResumeFacts | None) -> str:
 
 
 def list_section_points(facts: ResumeFacts | None, section: str | None) -> str:
-    """List the items currently stored for a specific section."""
-
     if facts is None:
         return NO_RESUME_MESSAGE
 
@@ -129,8 +125,6 @@ def show_section_item_detail(
     item_index: int | None,
     bullet_index: int | None = None,
 ) -> str:
-    """Show the detail for a 1-based section item, optionally scoped to a bullet."""
-
     if facts is None:
         return NO_RESUME_MESSAGE
 
@@ -218,63 +212,37 @@ def _section_item_count(facts: ResumeFacts, section: str) -> int:
 
 
 def _contact_lines(facts: ResumeFacts) -> list[str]:
-    if not facts.contact:
-        return []
     lines: list[str] = []
-    if facts.person and facts.person.full_name:
-        lines.append(f"Name: {facts.person.full_name}")
-    lines.extend(f"Email: {email}" for email in facts.contact.emails)
-    lines.extend(f"Phone: {phone}" for phone in facts.contact.phone_numbers)
-    lines.extend(f"Link: {link}" for link in facts.contact.links)
-    if facts.contact.location:
-        lines.append(f"Location: {facts.contact.location}")
+    person = facts.person
+    if person and person.full_name:
+        lines.append(person.full_name)
+    contact = facts.contact
+    if contact is None:
+        return lines
+    lines.extend(contact.emails)
+    lines.extend(contact.phone_numbers)
+    if contact.location:
+        lines.append(contact.location)
+    lines.extend(contact.links)
     return lines
 
 
-def _list_experiences(experiences: list[ExperienceFacts]) -> str:
-    if not experiences:
+def _list_experiences(items: list[ExperienceFacts]) -> str:
+    if not items:
         return "Professional Experiences\nNo professional experiences are available."
     return "Professional Experiences\n" + "\n".join(
-        f"{index}. {_experience_heading(item)} ({len(item.bullets)} bullets)"
-        for index, item in enumerate(experiences, start=1)
+        f"{index}. {_experience_heading(item)}"
+        for index, item in enumerate(items, start=1)
     )
 
 
-def _list_projects(projects: list[ProjectFacts]) -> str:
-    if not projects:
+def _list_projects(items: list[ProjectFacts]) -> str:
+    if not items:
         return "Projects\nNo projects are available."
     return "Projects\n" + "\n".join(
-        f"{index}. {_project_heading(item)} ({len(item.bullets)} bullets)"
-        for index, item in enumerate(projects, start=1)
+        f"{index}. {_project_heading(item)}"
+        for index, item in enumerate(items, start=1)
     )
-
-
-def _experience_heading(item: ExperienceFacts) -> str:
-    parts = [item.organization, item.title]
-    heading = " | ".join(part for part in parts if part)
-    return heading or "Untitled experience"
-
-
-def _project_heading(item: ProjectFacts) -> str:
-    return item.name or "Untitled project"
-
-
-def _education_heading(item) -> str:
-    parts = [item.institution, item.credential, item.field_of_study]
-    heading = " | ".join(part for part in parts if part)
-    return heading or "Untitled education entry"
-
-
-def _certification_heading(item) -> str:
-    parts = [item.name, item.issuer]
-    heading = " | ".join(part for part in parts if part)
-    return heading or "Untitled certification"
-
-
-def _language_heading(item) -> str:
-    if item.proficiency:
-        return f"{item.name} ({item.proficiency})"
-    return item.name
 
 
 def _experience_detail(
@@ -282,29 +250,18 @@ def _experience_detail(
     item_index: int | None,
     bullet_index: int | None,
 ) -> str:
+    heading = f"Professional experience {item_index}: {_experience_heading(item)}"
     if bullet_index is not None:
         bullet = _select_index(item.bullets, bullet_index)
         if bullet is None:
-            return _invalid_bullet_index_message("experience", bullet_index, len(item.bullets))
-        heading = _experience_heading(item)
-        return f"Professional experience {item_index}: {heading}\nBullet {bullet_index}: {bullet}"
-
-    lines = [f"Professional experience {item_index}: {_experience_heading(item)}"]
-    if item.start_date or item.end_date:
-        lines.append(
-            f"Dates: {item.start_date or '?'} to {item.end_date or 'present'}"
-        )
-    if item.location:
-        lines.append(f"Location: {item.location}")
-    if item.description:
-        lines.append(f"Description: {item.description}")
-    if item.bullets:
-        lines.extend(
-            f"Bullet {index}. {bullet}"
-            for index, bullet in enumerate(item.bullets, start=1)
-        )
-    if item.technologies:
-        lines.append(f"Technologies: {', '.join(item.technologies)}")
+            return _invalid_item_index_message(
+                "experience bullets",
+                bullet_index,
+                len(item.bullets),
+            )
+        return f"{heading}\nBullet {bullet_index}: {bullet}"
+    lines = [heading]
+    lines.extend(f"Bullet {index}: {bullet}" for index, bullet in enumerate(item.bullets, start=1))
     return "\n".join(lines)
 
 
@@ -313,78 +270,61 @@ def _project_detail(
     item_index: int | None,
     bullet_index: int | None,
 ) -> str:
+    heading = f"Project {item_index}: {_project_heading(item)}"
     if bullet_index is not None:
         bullet = _select_index(item.bullets, bullet_index)
         if bullet is None:
-            return _invalid_bullet_index_message("project", bullet_index, len(item.bullets))
-        heading = _project_heading(item)
-        return f"Project {item_index}: {heading}\nBullet {bullet_index}: {bullet}"
-
-    lines = [f"Project {item_index}: {_project_heading(item)}"]
-    if item.role:
-        lines.append(f"Role: {item.role}")
-    if item.description:
-        lines.append(f"Description: {item.description}")
-    if item.bullets:
-        lines.extend(
-            f"Bullet {index}. {bullet}"
-            for index, bullet in enumerate(item.bullets, start=1)
-        )
-    if item.technologies:
-        lines.append(f"Technologies: {', '.join(item.technologies)}")
-    if item.links:
-        lines.append(f"Links: {', '.join(item.links)}")
+            return _invalid_item_index_message(
+                "project bullets",
+                bullet_index,
+                len(item.bullets),
+            )
+        return f"{heading}\nBullet {bullet_index}: {bullet}"
+    lines = [heading]
+    lines.extend(f"Bullet {index}: {bullet}" for index, bullet in enumerate(item.bullets, start=1))
     return "\n".join(lines)
 
 
 def _education_detail(item, item_index: int | None) -> str:
-    lines = [f"Education {item_index}: {_education_heading(item)}"]
-    if item.start_date or item.end_date:
-        lines.append(
-            f"Dates: {item.start_date or '?'} to {item.end_date or 'present'}"
-        )
-    if item.location:
-        lines.append(f"Location: {item.location}")
-    return "\n".join(lines)
+    return f"Education {item_index}: {_education_heading(item)}"
 
 
 def _certification_detail(item, item_index: int | None) -> str:
-    lines = [f"Certification {item_index}: {_certification_heading(item)}"]
-    if item.issued_date:
-        lines.append(f"Issued: {item.issued_date}")
-    if item.expiration_date:
-        lines.append(f"Expires: {item.expiration_date}")
-    return "\n".join(lines)
+    return f"Certification {item_index}: {_certification_heading(item)}"
 
 
-def _select_index[T](items: list[T], item_index: int | None) -> T | None:
-    if item_index is None or item_index < 1 or item_index > len(items):
+def _experience_heading(item: ExperienceFacts) -> str:
+    return " | ".join(part for part in [item.organization, item.title] if part)
+
+
+def _project_heading(item: ProjectFacts) -> str:
+    return item.name or "Untitled project"
+
+
+def _education_heading(item) -> str:
+    return " | ".join(part for part in [item.institution, item.credential] if part)
+
+
+def _certification_heading(item) -> str:
+    return " | ".join(part for part in [item.name, item.issuer] if part)
+
+
+def _language_heading(item) -> str:
+    return " | ".join(part for part in [item.name, item.proficiency] if part)
+
+
+def _select_index(items: list, index: int | None):
+    if index is None or index < 1 or index > len(items):
         return None
-    return items[item_index - 1]
+    return items[index - 1]
 
 
-def _invalid_item_index_message(
-    section_label: str,
-    item_index: int | None,
-    item_count: int,
-) -> str:
+def _invalid_item_index_message(label: str, index: int | None, count: int) -> str:
     return (
-        f"Item {item_index} is not available in {section_label}. "
-        f"There are {item_count} items."
-    )
-
-
-def _invalid_bullet_index_message(
-    item_label: str,
-    bullet_index: int,
-    bullet_count: int,
-) -> str:
-    return (
-        f"Bullet {bullet_index} is not available in that {item_label}. "
-        f"There are {bullet_count} bullets."
+        f"I could not find {label} item {index}. "
+        f"There {'is' if count == 1 else 'are'} {count} available."
     )
 
 
 def _unknown_section_message() -> str:
-    valid_sections = ", ".join(SECTION_LABELS[section] for section in SECTION_ORDER)
-    return f"Unknown resume section. Valid sections: {valid_sections}."
+    return "I could not determine which resume section to inspect."

@@ -64,7 +64,7 @@ def test_orchestration_ingest_without_source_asks_for_resume_source() -> None:
     )
 
     assert state["status"] == "needs_source"
-    assert state["pending_user_action"] == "provide_resume_source"
+    assert state["interaction_state"] == "awaiting_resume_source"
     assert "Please provide the resume URI or local file path" in state["response"]
 
 
@@ -86,7 +86,7 @@ def test_orchestration_ingests_after_user_provides_uri(tmp_path: Path) -> None:
     )
 
     assert state["status"] == "ready"
-    assert state["pending_user_action"] is None
+    assert state["interaction_state"] is None
     assert state["resume_facts"] is not None
 
 
@@ -110,7 +110,7 @@ def test_orchestration_ingests_after_user_provides_quoted_file_path(
     )
 
     assert state["status"] == "ready"
-    assert state["pending_user_action"] is None
+    assert state["interaction_state"] is None
     assert state["resume_facts"] is not None
 
 
@@ -191,9 +191,9 @@ def test_orchestration_requires_configured_chat_model() -> None:
     try:
         run_orchestration_turn(user_input="/ingest --file resume.txt")
     except ValueError as exc:
-        assert "requires a configured chat model" in str(exc)
+        assert "The chat agent requires a configured chat model." in str(exc)
     else:
-        raise AssertionError("Expected orchestration chat to require a model.")
+        raise AssertionError("Expected chat agent to require a model.")
 
 
 def test_orchestration_cli_chat_defaults_to_interactive_session() -> None:

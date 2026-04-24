@@ -35,8 +35,6 @@ def source_from_ingestion_request(
     source_uri: str | None = None,
     command_text: str | None = None,
 ) -> DocumentSource | None:
-    """Resolve a resume source from explicit tool args or a raw /ingest command."""
-
     if source_uri:
         source_uri = _strip_wrapping_quotes(source_uri.strip())
         if source_uri.startswith("file://"):

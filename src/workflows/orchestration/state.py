@@ -12,11 +12,11 @@ class OrchestrationState(TypedDict, total=False):
     messages: list[Message]
     user_input: str
     intent: Literal["chat", "ingest_resume", "inspect_resume"]
-    next_node: Literal["resume_ingestion", "end"]
+    workflow_action: Literal["resume_ingestion", "none"]
+    interaction_state: Literal["awaiting_resume_source"] | None
     source: DocumentSource | None
     resume_ingestion_state: ResumeIngestionState | None
     resume_facts: ResumeFacts | None
-    pending_user_action: Literal["provide_resume_source"] | None
     response: str
     status: Literal["idle", "needs_source", "ingesting", "ready", "failed"]
     error: str | None

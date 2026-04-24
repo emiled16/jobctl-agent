@@ -52,7 +52,7 @@ def chat(
         ),
     ] = "same",
 ) -> None:
-    """Start an interactive orchestration chat session."""
+    """Start an interactive chat session."""
     if ctx.invoked_subcommand is not None:
         return
 
@@ -126,7 +126,7 @@ def ask(
         ),
     ] = "same",
 ) -> None:
-    """Run one orchestration chat turn."""
+    """Run one chat turn."""
     try:
         chat_model_instance, ingestion_provider = _build_chat_providers(
             llm=llm,
@@ -161,7 +161,7 @@ def _build_chat_providers(
         temperature=0.2,
     )
     if chat_model is None:
-        raise ConfigError("The orchestration chat agent requires --llm openai or --llm ollama.")
+        raise ConfigError("The chat agent requires --llm openai or --llm ollama.")
     ingestion_backend = llm if ingestion_llm == "same" else ingestion_llm
     if ingestion_backend == llm:
         return chat_model, chat_model
