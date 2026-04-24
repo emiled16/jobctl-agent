@@ -3,11 +3,14 @@ from __future__ import annotations
 from collections.abc import Callable
 
 import httpx
+from langchain_core.language_models.chat_models import BaseChatModel
 from langgraph.constants import END, START
 from langgraph.graph import StateGraph
 from langgraph.types import Send
 
-from src.workflows.resume_ingestion.nodes.extract_section import make_extract_section_node
+from src.workflows.resume_ingestion.nodes.extract_section import (
+    make_extract_section_node,
+)
 from src.workflows.resume_ingestion.nodes.merge_section_facts import merge_section_facts
 from src.workflows.resume_ingestion.nodes.parse_document import make_parse_document_node
 from src.workflows.resume_ingestion.nodes.resolve_source import resolve_source
@@ -24,7 +27,6 @@ from src.ingestion.resumes.models import (
     ResumeFacts,
     ResumeIngestionResult,
 )
-from src.llm.base import StructuredChatProvider
 
 GraphNode = Callable[[ResumeIngestionState], dict]
 
@@ -32,7 +34,7 @@ GraphNode = Callable[[ResumeIngestionState], dict]
 def build_resume_ingestion_graph(
     *,
     document_store: DocumentStore | None = None,
-    llm_provider: StructuredChatProvider | None = None,
+    llm_provider: BaseChatModel | None = None,
     http_client: httpx.Client | None = None,
 ):
     store = document_store or DocumentStore()

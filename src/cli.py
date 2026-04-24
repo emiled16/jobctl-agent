@@ -2,9 +2,11 @@ from __future__ import annotations
 
 import typer
 
+from src.app.orchestration import app as orchestration_app
 from src.app.resume_ingestion import app as resume_ingestion_app
 
 app = typer.Typer(help="Jobctl command line tools.")
+app.add_typer(orchestration_app, name="chat")
 app.add_typer(resume_ingestion_app, name="resume")
 
 
